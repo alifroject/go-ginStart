@@ -1,18 +1,20 @@
 package main
 
 import (
-    "github.com/gin-gonic/gin"
-    "gin-quickstart/config"
-    "gin-quickstart/controllers"
+	"gin-quickstart/config"
+	"gin-quickstart/routes"
+	"github.com/gin-gonic/gin"
 )
 
 func main() {
-    r := gin.Default()
-    config.ConnectDatabase()
+	config.ConnectDatabase()
 
-    r.GET("/ping", controllers.Ping)
-    r.GET("/users", controllers.GetUsers)
-    r.POST("/users", controllers.CreateUser)
+	router := gin.Default()
 
-    r.Run(":8080")
+
+    //routes
+	routes.RegisterRoutes(router)
+	routes.RegisterRoutes(router)
+
+	router.Run(":8080")
 }
