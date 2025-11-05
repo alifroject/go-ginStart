@@ -1,24 +1,38 @@
 package controllers
 
 import (
-    "gin-quickstart/config"
-    "gin-quickstart/models"
-    "github.com/gin-gonic/gin"
     "net/http"
-)
 
-func GetUsers(c *gin.Context) {
-    var users []models.User
-    config.DB.Find(&users)
-    c.JSON(http.StatusOK, users)
-}
+    "gin-quickstart/models"
+    "gin-quickstart/services"
+    "gin-quickstart/utils"
+
+    "github.com/gin-gonic/gin"
+)
 
 func CreateUser(c *gin.Context) {
     var user models.User
     if err := c.ShouldBindJSON(&user); err != nil {
-        c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
+        utils.RespondError(c, http.StatusBadRequest, "Invalid JSON")
         return
     }
-    config.DB.Create(&user)
-    c.JSON(http.StatusCreated, user)
+
+    if err := services.CreateUser(&user); err != nil {
+        utils.RespondError(c, http.StatusInternalServerError, err.Error())
+        return
+    }
+
+    utils.RespondJSON(c, http.StatusCreated, user)
 }
+
+func GetUsers(c *gin.Context) {
+    users, err := services.GetUsers()
+    if err != nil {
+        utils.RespondError(c, http.StatusInternalServerError, err.Error())
+        return
+    }
+
+    utils.RespondJSON(c, http.StatusOK, users)
+}
+
+
