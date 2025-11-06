@@ -14,7 +14,8 @@ func main() {
 
     //routes
 	routes.RegisterRoutes(router)
-	routes.RegisterRoutes(router)
+	routes.RegisterAuthRoutes(router) 
+
 
 	router.Run(":8080")
 }
