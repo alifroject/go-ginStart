@@ -12,47 +12,49 @@ import (
 var JWT_SECRET = []byte(os.Getenv("JWT_SECRET"))
 
 func AuthMiddleware() gin.HandlerFunc {
-	return func(c *gin.Context) {
-		authHeader := c.GetHeader("Authorization")
-		if authHeader == "" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Unauthorized"})
-			return
-		}
+    return func(c *gin.Context) {
+        var tokenString string
 
-		//logic
-		//split bearer
-		parts := strings.Split(authHeader, " ")
-		if len(parts) != 2 || parts[0] != "Bearer" {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token format"})
-			return
-		}
+        // 1. Try cookie (Admin Web)
+        cookie, err := c.Cookie("token")
+        if err == nil {
+            tokenString = cookie
+        }
 
-		tokenString := parts[1]
-		token, err := jwt.Parse(tokenString, func(t *jwt.Token) (interface{}, error) {
-			return JWT_SECRET, nil
+        // 2. Try header (Flutter)
+        if tokenString == "" {
+            authHeader := c.GetHeader("Authorization")
+            if authHeader != "" {
+                parts := strings.Split(authHeader, " ")
+                if len(parts) == 2 && parts[0] == "Bearer" {
+                    tokenString = parts[1]
+                }
+            }
+        }
 
-		})
+        if tokenString == "" {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+            return
+        }
 
-		//check
-		if err != nil || !token.Valid {
-			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"error": "Invalid token"})
-			return
-		}
+        token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
+            return JWT_SECRET, nil
+        })
 
-		//
-		if claims, ok := token.Claims.(jwt.MapClaims); ok {
-			user := map[string]interface{}{
-				"id":    claims["id"],
-				"email": claims["email"],
-				"role":  claims["role"],
-			}
-			c.Set("user", user)
-		}
+        if err != nil || !token.Valid {
+            c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{"message": "Unauthorized"})
+            return
+        }
 
-		c.Next()
+        if claims, ok := token.Claims.(jwt.MapClaims); ok {
+            c.Set("user", claims)
+            c.Set("role", claims["role"])
+        }
 
-	}
+        c.Next()
+    }
 }
+
 
 // admin
 func AdminOnly() gin.HandlerFunc {
