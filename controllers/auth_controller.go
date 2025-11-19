@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
 type SignupInput struct {
@@ -70,51 +71,55 @@ func Login(c *gin.Context) {
 }
 
 func AdminLogin(c *gin.Context) {
-    var input AdminLoginInput
+	var input AdminLoginInput
 
-    if err := c.ShouldBindJSON(&input); err != nil {
-        utils.RespondError(c, http.StatusBadRequest, err.Error())
-        return
-    }
-
-    token, user, err := services.AdminLogin(input.Email, input.Password)
-    if err != nil {
-        utils.RespondError(c, http.StatusUnauthorized, err.Error())
-        return
-    }
-
-    // Enforce Admin role
-    if user.Role != "admin" {
-        utils.RespondError(c, http.StatusForbidden, "Access denied: Admins only")
-        return
-    }
-
-    // Cookie settings
-    c.SetSameSite(http.SameSiteStrictMode)
-
-    c.SetCookie(
-        "token",
-        token,
-        3600*24,
-        "/",
-        "",
-        true,  // secure
-        true,  // httpOnly
-    )
-
-    utils.RespondJSON(c, http.StatusOK, gin.H{
-        "user": user,
-    })
-}
-
-
-
-func GetMe(c *gin.Context) {
-	user, exists := c.Get("user")
-	if !exists {
-		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found in context"})
+	if err := c.ShouldBindJSON(&input); err != nil {
+		utils.RespondError(c, http.StatusBadRequest, err.Error())
 		return
 	}
 
+	token, user, err := services.AdminLogin(input.Email, input.Password)
+	if err != nil {
+		utils.RespondError(c, http.StatusUnauthorized, err.Error())
+		return
+	}
+
+	// Enforce Admin role
+	if user.Role != "admin" {
+		utils.RespondError(c, http.StatusForbidden, "Access denied: Admins only")
+		return
+	}
+
+	// Cookie settings
+	c.SetSameSite(http.SameSiteStrictMode)
+
+	c.SetCookie(
+		"token",
+		token,
+		3600*24,
+		"/",
+		"",
+		true, // secure
+		true, // httpOnly
+	)
+
+	utils.RespondJSON(c, http.StatusOK, gin.H{
+		"user": user,
+	})
+}
+
+func GetMe(c *gin.Context) {
+	claims, exists := c.Get(("user"))
+	if !exists {
+		c.JSON(http.StatusUnauthorized, gin.H{"error": "User not found"})
+	}
+
+	userData := claims.(jwt.MapClaims)
+	userId := uint(userData["id"].(float64))
+	user, err := services.GetUserById(userId)
+	if err != nil {
+		c.JSON((http.StatusNotFound), gin.H{"error": err.Error()})
+		return
+	}
 	c.JSON(http.StatusOK, user)
 }
